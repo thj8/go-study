@@ -1,9 +1,8 @@
 package engine
 
-import "fmt"
-
 type QueueScheduler struct {
 	requestChan chan Request
+	workChan    chan chan Request
 }
 
 func (s *QueueScheduler) SubmitTask(r Request) {
@@ -12,12 +11,15 @@ func (s *QueueScheduler) SubmitTask(r Request) {
 
 func (s *QueueScheduler) Run() {
 	s.requestChan = make(chan Request)
+	s.workChan = make(chan chan Request)
 
 	go func() {
+		var requestQ []Request
+
 		for {
 			select {
 			case t := <-s.requestChan:
-				fmt.Println(t.Url)
+				requestQ = append(requestQ, t)
 			}
 		}
 	}()

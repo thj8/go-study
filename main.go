@@ -3,20 +3,17 @@ package main
 import (
 	"gowork/engine"
 	"strconv"
-	"time"
 )
 
 func main() {
 	rs := gReqs()
 
-	qs := engine.QueueScheduler{}
-	qs.Run()
-
-	for _, r := range rs {
-		qs.SubmitTask(r)
+	e := engine.ConcurrentEngine{
+		Scheduler:   &engine.SimpleScheduler{},
+		WorkerCount: 5,
 	}
 
-	time.Sleep(100 * time.Second)
+	e.Run(rs)
 }
 
 func gReqs() []engine.Request {
