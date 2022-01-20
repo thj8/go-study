@@ -5,7 +5,7 @@ type SimpleScheduler struct {
 }
 
 func (s *SimpleScheduler) SubmitTask(r Request) {
-	go func() { s.workChan <- r }()
+	s.workChan <- r
 }
 
 func (s *SimpleScheduler) ConfigureWorkChan(c chan Request) {
