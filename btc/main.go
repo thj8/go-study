@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const targetBits = 24
+const targetBits = 16
 
 type Block struct {
 	Timestamp     int64
@@ -87,7 +87,7 @@ func (pow *ProofOfWork) Run() (int, []byte) {
 	var hash [32]byte
 
 	nonce := 0
-	maxNonce := 10000000
+	maxNonce := 100000000
 
 	fmt.Printf("Mining the block containing \"%s\"\n", pow.block.Data)
 	for nonce < maxNonce {
@@ -108,6 +108,17 @@ func (pow *ProofOfWork) Run() (int, []byte) {
 	return nonce, hash[:]
 }
 
+func (pow *ProofOfWork) Validate() bool {
+	var hashInt big.Int
+	data := pow.prepareData(pow.block.Nonce)
+	hash := sha256.Sum256(data)
+	hashInt.SetBytes(hash[:])
+
+	isVaild := hashInt.Cmp(pow.target) == -1
+
+	return isVaild
+}
+
 func IntToHex(val int64) []byte {
 	hex := fmt.Sprintf("%x", val)
 	return []byte(hex)
@@ -123,6 +134,10 @@ func main() {
 		fmt.Printf("Prev. hash: %x\n", block.PrevBlockHash)
 		fmt.Printf("Data: %s\n", block.Data)
 		fmt.Printf("Hash: %x\n", block.Hash)
+		fmt.Println()
+
+		pow := NewProofOfWork(block)
+		fmt.Printf("Pow: %s\n", strconv.FormatBool(pow.Validate()))
 		fmt.Println()
 	}
 }
