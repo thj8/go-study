@@ -114,9 +114,9 @@ func (pow *ProofOfWork) Validate() bool {
 	hash := sha256.Sum256(data)
 	hashInt.SetBytes(hash[:])
 
-	isVaild := hashInt.Cmp(pow.target) == -1
+	isValid := hashInt.Cmp(pow.target) == -1
 
-	return isVaild
+	return isValid
 }
 
 func IntToHex(val int64) []byte {
