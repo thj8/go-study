@@ -3,6 +3,8 @@ package btc
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/gob"
+	"log"
 	"strconv"
 	"time"
 )
@@ -22,8 +24,38 @@ func (b *Block) SetHash() {
 	b.Hash = hash[:]
 }
 
+func (b *Block) Seralize() []byte {
+	var result bytes.Buffer
+	encoder := gob.NewEncoder(&result)
+
+	err := encoder.Encode(b)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return result.Bytes()
+}
+
+func DeserializeBlock(d []byte) *Block {
+	var block Block
+
+	decoder := gob.NewDecoder(bytes.NewBuffer(d))
+	err := decoder.Decode(&block)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return &block
+}
+
 func NewBlock(data string, preBlockHash []byte) *Block {
-	block := &Block{time.Now().Unix(), []byte(data), preBlockHash, []byte{}, 0}
+	block := &Block{
+		Timestamp:     time.Now().Unix(),
+		Data:          []byte(data),
+		PrevBlockHash: preBlockHash,
+		Hash:          []byte{},
+		Nonce:         0,
+	}
 	pow := NewProofOfWork(block)
 
 	nonce, hash := pow.Run()
@@ -31,4 +63,8 @@ func NewBlock(data string, preBlockHash []byte) *Block {
 	block.Nonce = nonce
 
 	return block
+}
+
+func NewGenesisBlock() *Block {
+	return NewBlock("Genesis Block", []byte{})
 }

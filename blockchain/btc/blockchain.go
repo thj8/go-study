@@ -1,19 +1,128 @@
 package btc
 
+import (
+	"log"
+
+	"github.com/boltdb/bolt"
+)
+
+const dbFile = "blockchain.db"
+const blockBucket = "blocks"
+
+// tip 存储最后一个块的hash
 type Blockchain struct {
-	Blocks []*Block
+	tip []byte
+	db  *bolt.DB
+}
+
+func (bc *Blockchain) Close() {
+	bc.db.Close()
 }
 
 func (bc *Blockchain) AddBlock(data string) {
-	prevBlock := bc.Blocks[len(bc.Blocks)-1]
-	newBlock := NewBlock(data, prevBlock.Hash)
-	bc.Blocks = append(bc.Blocks, newBlock)
-}
+	var lastHash []byte
 
-func NewGenesisBlock() *Block {
-	return NewBlock("Genesis Block", []byte{})
+	err := bc.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blockBucket))
+		lastHash = b.Get([]byte("l"))
+
+		return nil
+	})
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	newBlock := NewBlock(data, lastHash)
+	err = bc.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blockBucket))
+		err := b.Put(newBlock.Hash, newBlock.Seralize())
+		if err != nil {
+			log.Panic(err)
+		}
+
+		err = b.Put([]byte("l"), newBlock.Hash)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		bc.tip = newBlock.Hash
+		return nil
+	})
+
 }
 
 func NewBlockchain() *Blockchain {
-	return &Blockchain{[]*Block{NewGenesisBlock()}}
+	var tip []byte
+
+	db, err := bolt.Open(dbFile, 0600, nil)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	err = db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blockBucket))
+		if b == nil {
+			genesis := NewGenesisBlock()
+			b, err := tx.CreateBucket([]byte(blockBucket))
+			if err != nil {
+				log.Panic(err)
+			}
+
+			err = b.Put(genesis.Hash, genesis.Seralize())
+			if err != nil {
+				log.Panic(err)
+			}
+
+			err = b.Put([]byte("l"), genesis.Hash)
+			if err != nil {
+				log.Panic(err)
+			}
+			tip = genesis.Hash
+		} else {
+			tip = b.Get([]byte("l"))
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	bc := Blockchain{
+		tip: tip,
+		db:  db,
+	}
+	return &bc
+}
+
+type BlockchainIterator struct {
+	currentHash []byte
+	db          *bolt.DB
+}
+
+func (bc *Blockchain) Iterator() *BlockchainIterator {
+	return &BlockchainIterator{
+		currentHash: bc.tip,
+		db:          bc.db,
+	}
+}
+
+func (i *BlockchainIterator) Next() *Block {
+	var block *Block
+
+	err := i.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blockBucket))
+		encodeBlock := b.Get(i.currentHash)
+		block = DeserializeBlock(encodeBlock)
+		return nil
+	})
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	i.currentHash = block.PrevBlockHash
+	return block
 }
