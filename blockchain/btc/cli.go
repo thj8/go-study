@@ -59,12 +59,16 @@ func (cli *CLI) Run() {
 			os.Exit(1)
 		}
 
-		cli.Bc.AddBlock(*addBlockData)
+		cli.addBlock(*addBlockData)
 	}
 
 	if printChainCmd.Parsed() {
 		cli.printChain()
 	}
+}
+
+func (cli *CLI) addBlock(data string) {
+	cli.Bc.AddBlock(data)
 }
 
 func (cli *CLI) printChain() {
