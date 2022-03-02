@@ -74,8 +74,3 @@ func (pow *ProofOfWork) Validate() bool {
 
 	return isValid
 }
-
-func IntToHex(val int64) []byte {
-	hex := fmt.Sprintf("%x", val)
-	return []byte(hex)
-}
