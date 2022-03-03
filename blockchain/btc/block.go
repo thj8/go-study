@@ -11,7 +11,7 @@ import (
 
 type Block struct {
 	Timestamp     int64
-	Data          []byte
+	Transactions  []*Transactions
 	PrevBlockHash []byte
 	Hash          []byte
 	Nonce         int
@@ -36,6 +36,18 @@ func (b *Block) Seralize() []byte {
 	return result.Bytes()
 }
 
+func (b *Block) HashTransactions() []byte {
+	var txHashes [][]byte
+	var txHash [32]byte
+
+	for _, tx := range b.Transactions {
+		txHashes = append(txHashes, tx.ID)
+	}
+
+	txHash = sha256.Sum256(bytes.json(txHashes, []byte{}))
+	return txHash[:]
+}
+
 func DeserializeBlock(d []byte) *Block {
 	var block Block
 
@@ -48,10 +60,10 @@ func DeserializeBlock(d []byte) *Block {
 	return &block
 }
 
-func NewBlock(data string, preBlockHash []byte) *Block {
+func NewBlock(transactions []*Transaction, preBlockHash []byte) *Block {
 	block := &Block{
 		Timestamp:     time.Now().Unix(),
-		Data:          []byte(data),
+		Transactions:  transactions,
 		PrevBlockHash: preBlockHash,
 		Hash:          []byte{},
 		Nonce:         0,
@@ -65,6 +77,6 @@ func NewBlock(data string, preBlockHash []byte) *Block {
 	return block
 }
 
-func NewGenesisBlock() *Block {
-	return NewBlock("Genesis Block", []byte{})
+func NewGenesisBlock(coinbase *Transactions) *Block {
+	return NewBlock([]*Transaction{coinbase}, []byte{})
 }
