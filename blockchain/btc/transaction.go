@@ -27,6 +27,18 @@ type Transaction struct {
 	Vout []TXOutput
 }
 
+func (in *TXInput) CanUnlockOutputWith(unlockingData string) bool {
+	return in.ScriptSig == unlockingData
+}
+
+func (out *TXOutput) CanBeUnlockedWith(unlockingData string) bool {
+	return out.ScriptPubKey == unlockingData
+}
+
+func (tx Transaction) IsCoinbase() bool {
+	return len(tx.Vin) == 1 && len(tx.Vin[0].Txid) == 0 && tx.Vin[0].Vout == -1
+}
+
 // 构建coinbase交易 该没有输入 只有一个输出
 func NewCoinbaseTX(to, data string) *Transaction {
 	if data == "" {
