@@ -5,23 +5,15 @@ import (
 	"crypto/sha256"
 	"encoding/gob"
 	"log"
-	"strconv"
 	"time"
 )
 
 type Block struct {
 	Timestamp     int64
-	Transactions  []*Transactions
+	Transactions  []*Transaction
 	PrevBlockHash []byte
 	Hash          []byte
 	Nonce         int
-}
-
-func (b *Block) SetHash() {
-	timestamp := []byte(strconv.FormatInt(b.Timestamp, 10))
-	headers := bytes.Join([][]byte{b.PrevBlockHash, b.Data, timestamp}, []byte{})
-	hash := sha256.Sum256(headers)
-	b.Hash = hash[:]
 }
 
 func (b *Block) Seralize() []byte {
@@ -44,7 +36,7 @@ func (b *Block) HashTransactions() []byte {
 		txHashes = append(txHashes, tx.ID)
 	}
 
-	txHash = sha256.Sum256(bytes.json(txHashes, []byte{}))
+	txHash = sha256.Sum256(bytes.Join(txHashes, []byte{}))
 	return txHash[:]
 }
 
@@ -77,6 +69,6 @@ func NewBlock(transactions []*Transaction, preBlockHash []byte) *Block {
 	return block
 }
 
-func NewGenesisBlock(coinbase *Transactions) *Block {
+func NewGenesisBlock(coinbase *Transaction) *Block {
 	return NewBlock([]*Transaction{coinbase}, []byte{})
 }

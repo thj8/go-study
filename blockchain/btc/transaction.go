@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
+	"log"
 )
 
 const subidy = 10
@@ -60,7 +61,7 @@ func (tx *Transaction) SetID() {
 	enc := gob.NewEncoder(&encoded)
 	err := enc.Encode(tx)
 	if err != nil {
-		log.Painc(err)
+		log.Panic(err)
 	}
 
 	hash = sha256.Sum256(encoded.Bytes())

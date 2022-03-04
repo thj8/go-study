@@ -23,36 +23,36 @@ func (bc *Blockchain) Close() {
 }
 
 func (bc *Blockchain) AddBlock(data string) {
-	var lastHash []byte
-
-	err := bc.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(blockBucket))
-		lastHash = b.Get([]byte("l"))
-
-		return nil
-	})
-
-	if err != nil {
-		log.Panic(err)
-	}
-
-	newBlock := NewBlock(data, lastHash)
-	err = bc.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(blockBucket))
-		err := b.Put(newBlock.Hash, newBlock.Seralize())
-		if err != nil {
-			log.Panic(err)
-		}
-
-		err = b.Put([]byte("l"), newBlock.Hash)
-		if err != nil {
-			log.Panic(err)
-		}
-
-		bc.tip = newBlock.Hash
-		return nil
-	})
-
+	// var lastHash []byte
+	//
+	// err := bc.db.View(func(tx *bolt.Tx) error {
+	// 	b := tx.Bucket([]byte(blockBucket))
+	// 	lastHash = b.Get([]byte("l"))
+	//
+	// 	return nil
+	// })
+	//
+	// if err != nil {
+	// 	log.Panic(err)
+	// }
+	//
+	// newBlock := NewBlock(data, lastHash)
+	// err = bc.db.Update(func(tx *bolt.Tx) error {
+	// 	b := tx.Bucket([]byte(blockBucket))
+	// 	err := b.Put(newBlock.Hash, newBlock.Seralize())
+	// 	if err != nil {
+	// 		log.Panic(err)
+	// 	}
+	//
+	// 	err = b.Put([]byte("l"), newBlock.Hash)
+	// 	if err != nil {
+	// 		log.Panic(err)
+	// 	}
+	//
+	// 	bc.tip = newBlock.Hash
+	// 	return nil
+	// })
+	//
 }
 
 func dbExist() bool {
@@ -131,7 +131,7 @@ func CreateBlockChain(address string) *Blockchain {
 	})
 
 	if err != nil {
-		log.Painc(err)
+		log.Panic(err)
 	}
 
 	return &Blockchain{
