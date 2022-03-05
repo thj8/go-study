@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
+	"encoding/hex"
 	"fmt"
 	"log"
 )
@@ -78,4 +79,54 @@ func (tx *Transaction) SetID() {
 
 	hash = sha256.Sum256(encoded.Bytes())
 	tx.ID = hash[:]
+}
+
+func NewUTXOTransaction(from, to string, amount int, bc *Blockchain) *Transaction {
+	var inputs []TXInput
+	var outputs []TXOutput
+
+	// 找到足够的未话费输出
+	acc, validOutputs := bc.FindSpendableOutputs(from, amount)
+	if acc < amount {
+		log.Panic("ERROR: Not enough funds")
+	}
+
+	for txid, outs := range validOutputs {
+		txID, err := hex.DecodeString(txid)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		for _, out := range outs {
+			input := TXInput{
+				Txid:      txID,
+				Vout:      out,
+				ScriptSig: from,
+			}
+			inputs = append(inputs, input)
+		}
+	}
+
+	outputs = append(outputs, TXOutput{
+		Value:        amount,
+		ScriptPubKey: to,
+	})
+
+	// 找零钱
+	if amount < acc {
+		outputs = append(outputs, TXOutput{
+			Value:        acc - amount,
+			ScriptPubKey: from,
+		})
+
+	}
+
+	tx := Transaction{
+		ID:   nil,
+		Vin:  inputs,
+		Vout: outputs,
+	}
+	tx.SetID()
+
+	return &tx
 }

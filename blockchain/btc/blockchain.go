@@ -23,37 +23,37 @@ func (bc *Blockchain) Close() {
 	bc.db.Close()
 }
 
-func (bc *Blockchain) AddBlock(data string) {
-	// var lastHash []byte
-	//
-	// err := bc.db.View(func(tx *bolt.Tx) error {
-	// 	b := tx.Bucket([]byte(blockBucket))
-	// 	lastHash = b.Get([]byte("l"))
-	//
-	// 	return nil
-	// })
-	//
-	// if err != nil {
-	// 	log.Panic(err)
-	// }
-	//
-	// newBlock := NewBlock(data, lastHash)
-	// err = bc.db.Update(func(tx *bolt.Tx) error {
-	// 	b := tx.Bucket([]byte(blockBucket))
-	// 	err := b.Put(newBlock.Hash, newBlock.Seralize())
-	// 	if err != nil {
-	// 		log.Panic(err)
-	// 	}
-	//
-	// 	err = b.Put([]byte("l"), newBlock.Hash)
-	// 	if err != nil {
-	// 		log.Panic(err)
-	// 	}
-	//
-	// 	bc.tip = newBlock.Hash
-	// 	return nil
-	// })
-	//
+func (bc *Blockchain) MineBlock(transactions []*Transaction) {
+	var lastHash []byte
+
+	err := bc.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blockBucket))
+		lastHash = b.Get([]byte("l"))
+
+		return nil
+	})
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	newBlock := NewBlock(transactions, lastHash)
+	err = bc.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blockBucket))
+		err := b.Put(newBlock.Hash, newBlock.Seralize())
+		if err != nil {
+			log.Panic(err)
+		}
+
+		err = b.Put([]byte("l"), newBlock.Hash)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		bc.tip = newBlock.Hash
+		return nil
+	})
+
 }
 
 func dbExist() bool {
@@ -203,6 +203,30 @@ func (bc *Blockchain) FinDUTXO(address string) []TXOutput {
 	}
 
 	return UTXOs
+}
+
+func (bc *Blockchain) FindSpendableOutputs(address string, amount int) (int, map[string][]int) {
+	unspentOutputs := make(map[string][]int)
+	unspentTXs := bc.FindUnspentTransactions(address)
+	accumulated := 0
+
+Work:
+	for _, tx := range unspentTXs {
+		txID := hex.EncodeToString(tx.ID)
+
+		for outIdx, out := range tx.Vout {
+			if out.CanBeUnlockedWith(address) && accumulated < amount {
+				accumulated += out.Value
+				unspentOutputs[txID] = append(unspentOutputs[txID], outIdx)
+
+				if accumulated >= amount {
+					break Work
+				}
+			}
+		}
+	}
+
+	return accumulated, unspentOutputs
 }
 
 type BlockchainIterator struct {
