@@ -1,3 +1,5 @@
 
 .idea
 blockchain/blockchain.db
+blockchain/wallet.dat
+blockchain/go.sum
