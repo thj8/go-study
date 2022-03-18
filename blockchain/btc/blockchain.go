@@ -1,6 +1,7 @@
 package btc
 
 import (
+	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -64,8 +65,8 @@ func dbExist() bool {
 	return true
 }
 
-// 创建一个有创世快的新连
-func NewBlockchain(data string) *Blockchain {
+// NewBlockchain creates a new Blockchain with genesis Block
+func NewBlockchain(address string) *Blockchain {
 	if dbExist() == false {
 		fmt.Println("No existing blockchain found, Create one first.")
 		os.Exit(1)
@@ -87,10 +88,8 @@ func NewBlockchain(data string) *Blockchain {
 		log.Panic(err)
 	}
 
-	bc := Blockchain{
-		tip: tip,
-		db:  db,
-	}
+	bc := Blockchain{tip, db}
+
 	return &bc
 }
 
@@ -229,32 +228,18 @@ Work:
 	return accumulated, unspentOutputs
 }
 
-type BlockchainIterator struct {
-	currentHash []byte
-	db          *bolt.DB
-}
+// SignTransaction signs inputs fo a transaction
+func (bc *Blockchain) SignTransaction(tx *Transaction, privKey ecdsa.PrivateKey) {
+	prevTXs := make(map[string]Transaction)
 
-func (bc *Blockchain) Iterator() *BlockchainIterator {
-	return &BlockchainIterator{
-		currentHash: bc.tip,
-		db:          bc.db,
-	}
-}
+	for _, vin := range tx.Vin {
+		prevTX, err := bc.FindTransaction(vin.Txid)
+		if err != nil {
+			log.Painc(err)
+		}
 
-func (i *BlockchainIterator) Next() *Block {
-	var block *Block
-
-	err := i.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(blockBucket))
-		encodeBlock := b.Get(i.currentHash)
-		block = DeserializeBlock(encodeBlock)
-		return nil
-	})
-
-	if err != nil {
-		log.Panic(err)
+		prevTX[hex.EncodeToString(prevTX.ID)] = prevTx
 	}
 
-	i.currentHash = block.PrevBlockHash
-	return block
+	tx.Sign(privKey, prevTXs)
 }
