@@ -11,13 +11,6 @@ type BlockchainIterator struct {
 	db          *bolt.DB
 }
 
-func (bc *Blockchain) Iterator() *BlockchainIterator {
-	return &BlockchainIterator{
-		currentHash: bc.tip,
-		db:          bc.db,
-	}
-}
-
 func (i *BlockchainIterator) Next() *Block {
 	var block *Block
 

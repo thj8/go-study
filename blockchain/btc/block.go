@@ -52,6 +52,7 @@ func DeserializeBlock(d []byte) *Block {
 	return &block
 }
 
+// NewBlock creates and returns Block
 func NewBlock(transactions []*Transaction, preBlockHash []byte) *Block {
 	block := &Block{
 		Timestamp:     time.Now().Unix(),
@@ -60,15 +61,17 @@ func NewBlock(transactions []*Transaction, preBlockHash []byte) *Block {
 		Hash:          []byte{},
 		Nonce:         0,
 	}
-	pow := NewProofOfWork(block)
 
+	pow := NewProofOfWork(block)
 	nonce, hash := pow.Run()
+
 	block.Hash = hash[:]
 	block.Nonce = nonce
 
 	return block
 }
 
+// NewGenesisBlock creates and returns genesis Bolck
 func NewGenesisBlock(coinbase *Transaction) *Block {
 	return NewBlock([]*Transaction{coinbase}, []byte{})
 }

@@ -1,6 +1,7 @@
 package btc
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -14,11 +15,13 @@ const version = byte(0x00)
 const addressChecksumLen = 4
 const walletFile = "wallet.dat"
 
+// Wallet stores private and public keys
 type Wallet struct {
 	PrivateKey ecdsa.PrivateKey
 	PublicKey  []byte
 }
 
+// NewWallet creates and returns a wallet
 func NewWallet() *Wallet {
 	private, public := newKeyPair()
 	wallet := Wallet{private, public}
@@ -36,6 +39,7 @@ func newKeyPair() (ecdsa.PrivateKey, []byte) {
 	return *private, pubKey
 }
 
+// GetAddress returns wallet address
 func (w Wallet) GetAddress() []byte {
 	pubKeyHash := HashPubkey(w.PublicKey)
 
@@ -48,6 +52,7 @@ func (w Wallet) GetAddress() []byte {
 	return address
 }
 
+// Checksum generates a checksum for a public key
 func checksum(playload []byte) []byte {
 	firstSHA := sha256.Sum256(playload)
 	secondSHA := sha256.Sum256(firstSHA[:])
@@ -55,6 +60,7 @@ func checksum(playload []byte) []byte {
 	return secondSHA[:addressChecksumLen]
 }
 
+// HashPubkey hashed public key
 func HashPubkey(pubKey []byte) []byte {
 	publicSHA256 := sha256.Sum256(pubKey)
 
@@ -66,4 +72,17 @@ func HashPubkey(pubKey []byte) []byte {
 
 	publicRIPEMD160 := RIPEMD160Hasher.Sum(nil)
 	return publicRIPEMD160
+}
+
+// ValidateAddress check if address if valid
+func ValidateAddress(address string) bool {
+	pubKeyHash := Base58Decode([]byte(address))
+	hashLen := len(pubKeyHash) - addressChecksumLen
+	actualChecksum := pubKeyHash[hashLen:]
+	version := pubKeyHash[0]
+	pubKeyHash = pubKeyHash[1:hashLen]
+
+	targetChecksum := checksum(append([]byte{version}, pubKeyHash...))
+
+	return bytes.Compare(targetChecksum, actualChecksum) == 0
 }

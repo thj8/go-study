@@ -8,7 +8,7 @@ import (
 	"math/big"
 )
 
-const targetBits = 16
+const targetBits = 24
 
 const maxNonce = math.MaxInt64
 

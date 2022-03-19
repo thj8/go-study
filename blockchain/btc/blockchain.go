@@ -29,6 +29,13 @@ func (bc *Blockchain) Close() {
 func (bc *Blockchain) MineBlock(transactions []*Transaction) {
 	var lastHash []byte
 
+	for _, tx := range transactions {
+		if !bc.VerifyTransaction(tx) {
+			log.Panic("ERROR: Invalid transaction")
+		}
+
+	}
+
 	err := bc.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blockBucket))
 		lastHash = b.Get([]byte("l"))
@@ -95,7 +102,7 @@ func NewBlockchain(address string) *Blockchain {
 	return &bc
 }
 
-// 创建一个新的区块链数据库， address 用来接收挖出的创世快的奖励
+// CreateBlockchain creates a new blockchain DB
 func CreateBlockChain(address string) *Blockchain {
 	if dbExist() {
 		fmt.Println("Blockchain already exists")
@@ -103,14 +110,16 @@ func CreateBlockChain(address string) *Blockchain {
 	}
 
 	var tip []byte
+
+	cbtx := NewCoinbaseTX(address, genesisCoinbaseData)
+	genesis := NewGenesisBlock(cbtx)
+
 	db, err := bolt.Open(dbFile, 0600, nil)
 	if err != nil {
 		log.Panic(err)
 	}
 
 	err = db.Update(func(tx *bolt.Tx) error {
-		cbtx := NewCoinbaseTX(address, genesisCoinbaseData)
-		genesis := NewGenesisBlock(cbtx)
 
 		b, err := tx.CreateBucket([]byte(blockBucket))
 		if err != nil {
@@ -253,18 +262,42 @@ func (bc *Blockchain) FindTransaction(ID []byte) (Transaction, error) {
 	return Transaction{}, errors.New("Transaction is not found")
 }
 
-// SignTransaction signs inputs fo a transaction
+// SignTransaction signs inputs for a transaction
 func (bc *Blockchain) SignTransaction(tx *Transaction, privKey ecdsa.PrivateKey) {
 	prevTXs := make(map[string]Transaction)
 
 	for _, vin := range tx.Vin {
 		prevTX, err := bc.FindTransaction(vin.Txid)
 		if err != nil {
-			log.Painc(err)
+			log.Panic(err)
 		}
 
-		prevTX[hex.EncodeToString(prevTX.ID)] = prevTx
+		prevTXs[hex.EncodeToString(prevTX.ID)] = prevTX
 	}
 
 	tx.Sign(privKey, prevTXs)
+}
+
+// VerifyTransaction verifies transaction input signatures
+func (bc *Blockchain) VerifyTransaction(tx *Transaction) bool {
+	prevTXs := make(map[string]Transaction)
+
+	for _, vin := range tx.Vin {
+		prevTx, err := bc.FindTransaction(vin.Txid)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		prevTXs[hex.EncodeToString(prevTx.ID)] = prevTx
+	}
+
+	return tx.Verify(prevTXs)
+}
+
+// Iterator returns a Block Iterator
+func (bc *Blockchain) Iterator() *BlockchainIterator {
+	return &BlockchainIterator{
+		currentHash: bc.tip,
+		db:          bc.db,
+	}
 }
