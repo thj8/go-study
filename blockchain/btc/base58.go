@@ -35,7 +35,7 @@ func Base58Encode(input []byte) []byte {
 	return result
 }
 
-func Base58Dncode(input []byte) []byte {
+func Base58Decode(input []byte) []byte {
 	result := big.NewInt(0)
 	zeroBytes := 0
 

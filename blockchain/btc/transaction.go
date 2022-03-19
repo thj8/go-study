@@ -13,25 +13,10 @@ import (
 
 const subidy = 10
 
-type TXInput struct {
-	Txid      []byte
-	Vout      int
-	Signature []byte
-	PubKey    []byte
-}
-
 type Transaction struct {
 	ID   []byte
 	Vin  []TXInput
 	Vout []TXOutput
-}
-
-func (in *TXInput) CanUnlockOutputWith(unlockingData string) bool {
-	return in.ScriptSig == unlockingData
-}
-
-func (out *TXOutput) CanBeUnlockedWith(unlockingData string) bool {
-	return out.ScriptPubKey == unlockingData
 }
 
 func (tx Transaction) IsCoinbase() bool {
@@ -97,32 +82,23 @@ func (tx *Transaction) Sign(privkey ecdsa.PrivateKey, prevTXs map[string]Transac
 	}
 }
 
+// NewCoinbaseTX creates a new coinbase transaction
 func NewCoinbaseTX(to, data string) *Transaction {
 	if data == "" {
 		data = fmt.Sprintf("Reward to '%s'", to)
 	}
 
-	txin := TXInput{
-		Txid:      []byte{},
-		Vout:      -1,
-		ScriptSig: to,
-	}
+	txin := TXInput{[]byte{}, -1, nil, []byte(data)}
 
-	txout := TXOutput{
-		Value:        subidy,
-		ScriptPubKey: to,
-	}
+	txout := NewTXOutput(subidy, to)
 
-	tx := &Transaction{
-		ID:   nil,
-		Vin:  []TXInput{txin},
-		Vout: []TXOutput{txout},
-	}
+	tx := &Transaction{nil, []TXInput{txin}, []TXOutput{*txout}}
 
 	tx.ID = tx.Hash()
 	return tx
 }
 
+// NewUTXOTransaction creates a new transcation
 func NewUTXOTransaction(from, to string, amount int, bc *Blockchain) *Transaction {
 	var inputs []TXInput
 	var outputs []TXOutput
@@ -133,9 +109,8 @@ func NewUTXOTransaction(from, to string, amount int, bc *Blockchain) *Transactio
 	}
 
 	wallet := wallets.GetWallet(from)
-
-	// 找到足够的未话费输出
-	acc, validOutputs := bc.FindSpendableOutputs(from, amount)
+	pubKeyHash := HashPubkey(wallet.PublicKey)
+	acc, validOutputs := bc.FindSpendableOutputs(pubKeyHash, amount)
 	if acc < amount {
 		log.Panic("ERROR: Not enough funds")
 	}
