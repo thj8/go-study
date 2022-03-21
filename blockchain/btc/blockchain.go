@@ -26,7 +26,8 @@ func (bc *Blockchain) Close() {
 	bc.db.Close()
 }
 
-func (bc *Blockchain) MineBlock(transactions []*Transaction) {
+// MineBlock mines a new block with the provided transaction
+func (bc *Blockchain) MineBlock(transactions []*Transaction) *Block {
 	var lastHash []byte
 
 	for _, tx := range transactions {
@@ -64,6 +65,7 @@ func (bc *Blockchain) MineBlock(transactions []*Transaction) {
 		return nil
 	})
 
+	return newBlock
 }
 
 func dbExist() bool {
@@ -75,7 +77,7 @@ func dbExist() bool {
 }
 
 // NewBlockchain creates a new Blockchain with genesis Block
-func NewBlockchain(address string) *Blockchain {
+func NewBlockchain() *Blockchain {
 	if dbExist() == false {
 		fmt.Println("No existing blockchain found, Create one first.")
 		os.Exit(1)
@@ -151,9 +153,9 @@ func CreateBlockChain(address string) *Blockchain {
 	}
 }
 
-// FindUnspentTransactions returns a list of transactions containing unspent outputs
-func (bc *Blockchain) FindUnspentTransactions(pubKeyHash []byte) []Transaction {
-	var unspentTXs []Transaction
+// FindUTXO finds all unspent transaction outputs and returns transactions with spent outputs removed
+func (bc *Blockchain) FindUTXO() map[string]TXOutputs {
+	UTXO := make(map[string]TXOutputs)
 	spentTXOs := make(map[string][]int)
 	bci := bc.Iterator()
 
@@ -165,8 +167,8 @@ func (bc *Blockchain) FindUnspentTransactions(pubKeyHash []byte) []Transaction {
 
 		Outputs:
 			for outIdx, out := range tx.Vout {
+				// Was the output spent?
 				if spentTXOs[txID] != nil {
-					// 看看这个已经消费的idx是不是这个地址消费的
 					for _, spentOut := range spentTXOs[txID] {
 						if spentOut == outIdx {
 							continue Outputs
@@ -174,19 +176,15 @@ func (bc *Blockchain) FindUnspentTransactions(pubKeyHash []byte) []Transaction {
 					}
 				}
 
-				if out.IsLockedWithKey(pubKeyHash) {
-					unspentTXs = append(unspentTXs, *tx)
-				}
-
+				outs := UTXO[txID]
+				outs.Outputs = append(outs.Outputs, out)
+				UTXO[txID] = outs
 			}
 
 			if tx.IsCoinbase() == false {
 				for _, in := range tx.Vin {
-					if in.UseKey(pubKeyHash) {
-						// 统计in交易哪些out已经被消费了
-						inTxID := hex.EncodeToString(in.Txid)
-						spentTXOs[inTxID] = append(spentTXOs[inTxID], in.Vout)
-					}
+					inTxID := hex.EncodeToString(in.Txid)
+					spentTXOs[inTxID] = append(spentTXOs[inTxID], in.Vout)
 				}
 			}
 		}
@@ -196,49 +194,7 @@ func (bc *Blockchain) FindUnspentTransactions(pubKeyHash []byte) []Transaction {
 		}
 	}
 
-	return unspentTXs
-}
-
-// FinDUTXO finds and returns all unspent transaction outputs
-func (bc *Blockchain) FinDUTXO(pubKeyHash []byte) []TXOutput {
-	var UTXOs []TXOutput
-
-	unspentTransactions := bc.FindUnspentTransactions(pubKeyHash)
-
-	for _, tx := range unspentTransactions {
-		for _, out := range tx.Vout {
-			if out.IsLockedWithKey(pubKeyHash) {
-				UTXOs = append(UTXOs, out)
-			}
-		}
-	}
-
-	return UTXOs
-}
-
-// FindUnspentTransactions finds and returns unspent outpus to reference in inputs
-func (bc *Blockchain) FindSpendableOutputs(pubKeyHash []byte, amount int) (int, map[string][]int) {
-	unspentOutputs := make(map[string][]int)
-	unspentTXs := bc.FindUnspentTransactions(pubKeyHash)
-	accumulated := 0
-
-Work:
-	for _, tx := range unspentTXs {
-		txID := hex.EncodeToString(tx.ID)
-
-		for outIdx, out := range tx.Vout {
-			if out.IsLockedWithKey(pubKeyHash) && accumulated < amount {
-				accumulated += out.Value
-				unspentOutputs[txID] = append(unspentOutputs[txID], outIdx)
-
-				if accumulated >= amount {
-					break Work
-				}
-			}
-		}
-	}
-
-	return accumulated, unspentOutputs
+	return UTXO
 }
 
 // FindTransaction finds a transaction by its ID
