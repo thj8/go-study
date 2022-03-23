@@ -139,7 +139,10 @@ func (cli *CLI) createBlockchain(address string) {
 	}
 
 	bc := CreateBlockChain(address)
-	bc.db.Close()
+	defer bc.db.Close()
+
+	UTXOSet := UTXOSet{bc}
+	UTXOSet.Reindex()
 
 	fmt.Println("Done!")
 }
@@ -179,7 +182,13 @@ func (cli *CLI) send(from, to string, amount int) {
 	UTXOSet := UTXOSet{bc}
 	defer bc.db.Close()
 
-	tx := NewUTXOTransaction(from, to, amount, &UTXOSet)
+	wallets, err := NewWallets()
+	if err != nil {
+		log.Panic(err)
+	}
+	wallet := wallets.GetWallet(from)
+
+	tx := NewUTXOTransaction(&wallet, to, amount, &UTXOSet)
 	cbTx := NewCoinbaseTX(from, "")
 	txs := []*Transaction{cbTx, tx}
 

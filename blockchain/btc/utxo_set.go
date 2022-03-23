@@ -7,7 +7,7 @@ import (
 	"github.com/boltdb/bolt"
 )
 
-const utxBucket = "chainstate"
+const utxoBucket = "chainstate"
 
 type UTXOSet struct {
 	Blockchain *Blockchain
@@ -20,7 +20,7 @@ func (u UTXOSet) FindSpendableOutputs(pubKeyHash []byte, amount int) (int, map[s
 	db := u.Blockchain.db
 
 	err := db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(utxBucket))
+		b := tx.Bucket([]byte(utxoBucket))
 		c := b.Cursor()
 
 		for k, v := c.First(); k != nil; k, v = c.Next() {
@@ -50,7 +50,7 @@ func (u UTXOSet) FindUTXO(pubKeyHash []byte) []TXOutput {
 	db := u.Blockchain.db
 
 	err := db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(utxBucket))
+		b := tx.Bucket([]byte(utxoBucket))
 		c := b.Cursor()
 
 		for k, v := c.First(); k != nil; k, v = c.Next() {
@@ -75,7 +75,7 @@ func (u UTXOSet) FindUTXO(pubKeyHash []byte) []TXOutput {
 // Reindex rebuilds the UTXO set
 func (u UTXOSet) Reindex() {
 	db := u.Blockchain.db
-	bucketName := []byte(utxBucket)
+	bucketName := []byte(utxoBucket)
 
 	err := db.Update(func(tx *bolt.Tx) error {
 		err := tx.DeleteBucket(bucketName)
@@ -115,6 +115,56 @@ func (u UTXOSet) Reindex() {
 	})
 }
 
+// Update updates the UTXO set with transaction from the Block
 func (u UTXOSet) Update(block *Block) {
+	db := u.Blockchain.db
 
+	err := db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(utxoBucket))
+
+		for _, tx := range block.Transactions {
+			if !tx.IsCoinbase() {
+				for _, vin := range tx.Vin {
+					updateOuts := TXOutputs{}
+					outsBytes := b.Get(vin.Txid)
+					outs := DeserializeOutputs(outsBytes)
+
+					for outIdx, out := range outs.Outputs {
+						if outIdx != vin.Vout {
+							updateOuts.Outputs = append(updateOuts.Outputs, out)
+						}
+					}
+
+					if len(updateOuts.Outputs) == 0 {
+						err := b.Delete(vin.Txid)
+						if err != nil {
+							log.Panic(err)
+						}
+					} else {
+						err := b.Put(vin.Txid, updateOuts.Serialize())
+						if err != nil {
+							log.Panic(err)
+						}
+					}
+
+				}
+			}
+
+			newOutputs := TXOutputs{}
+			for _, out := range tx.Vout {
+				newOutputs.Outputs = append(newOutputs.Outputs, out)
+			}
+
+			err := b.Put(tx.ID, newOutputs.Serialize())
+			if err != nil {
+				log.Panic(err)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		log.Panic(err)
+	}
 }
